@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Review Bahan Bangunan - Demo</title>
+  <style>
+    :root{--accent:#0ea5a4;--bg:#f6f8fa;--card:#fff;--muted:#6b7280}
+    *{box-sizing:border-box}body{font-family:Inter,ui-sans-serif,system-ui,Segoe UI,Roboto,"Helvetica Neue",Arial; margin:0;background:var(--bg);color:#0f172a}
+    header{background:linear-gradient(90deg,#06b6d4, #06a6b5);color:white;padding:18px 20px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    header h1{margin:0;font-size:18px}
+    .container{max-width:1100px;margin:20px auto;padding:0 16px}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06)}
+    input[type=text],select,textarea{padding:8px;border-radius:8px;border:1px solid #e6edf3;width:100%}
+    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    @media (max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:600px){.grid{grid-template-columns:1fr}.controls{flex-direction:column}}
+    .item-card{display:flex;gap:12px;padding:12px;border-radius:10px;align-items:flex-start}
+    .item-thumb{width:84px;height:84px;border-radius:8px;background:linear-gradient(180deg,#eef2f7,#f9fafb);display:flex;align-items:center;justify-content:center;font-weight:600;color:var(--muted)}
+    .item-body{flex:1}
+    .meta{font-size:13px;color:var(--muted);margin-bottom:6px}
+    .stars{display:inline-block}
+    .star{color:#f59e0b;margin-right:2px}
+    .btn{background:var(--accent);color:white;padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+    .btn.secondary{background:#e6eef0;color:#064047}
+    .reviews{margin-top:8px;font-size:14px}
+    .small{font-size:13px;color:var(--muted)}
+    .rating-bar{height:10px;background:#e6eef0;border-radius:6px;overflow:hidden}
+    .rating-fill{height:100%;background:var(--accent)}
+    .modal{position:fixed;inset:0;background:rgba(2,6,23,0.45);display:flex;align-items:center;justify-content:center;padding:20px}
+    .modal-card{width:100%;max-width:720px}
+    .chip{display:inline-block;padding:6px 8px;border-radius:999px;border:1px solid #e6eef0;margin-right:6px;font-size:13px}
+    footer{padding:14px;text-align:center;color:var(--muted)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Review Bahan Bangunan — Demo</h1>
+    <div class="small">Daftar barang, review kualitas, rating & komentar. Disimpan di browser (LocalStorage).</div>
+  </header>
+
+  <main class="container">
+    <div class="controls card">
+      <div style="display:flex;gap:12px;width:100%;flex-wrap:wrap">
+        <input id="searchInput" type="text" placeholder="Cari nama bahan, kategori, atau deskripsi..." />
+        <select id="categoryFilter">
+          <option value="">Semua Kategori</option>
+        </select>
+        <select id="sortBy">
+          <option value="popular">Urut: Terpopuler</option>
+          <option value="rating_desc">Rating Tertinggi</option>
+          <option value="rating_asc">Rating Terendah</option>
+          <option value="name_asc">Nama A → Z</option>
+        </select>
+        <button id="btnAddReview" class="btn">Tambah Review</button>
+        <button id="btnExport" class="btn secondary">Export JSON</button>
+        <button id="btnReset" class="btn secondary">Reset Reviews</button>
+      </div>
+    </div>
+
+    <section class="card" style="margin-bottom:12px;padding-bottom:12px">
+      <h3 style="margin:0 0 8px 0">Ringkasan</h3>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="min-width:200px;flex:1">
+          <div class="small">Total produk</div>
+          <div id="totalProducts" style="font-size:20px;font-weight:700">—</div>
+        </div>
+        <div style="min-width:200px;flex:2">
+          <div class="small">Distribusi rating</div>
+          <div id="ratingDist" style="margin-top:8px"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="items" class="grid"></section>
+
+  </main>
+
+  <footer>Template sederhana — Anda bisa gunakan/ubah untuk toko bahan bangunan.</footer>
+
+  <!-- Modal for adding review -->
+  <div id="modal" class="modal" style="display:none">
+    <div class="modal-card card">
+      <h3>Tambah Review</h3>
+      <div style="display:grid;grid-template-columns:1fr 200px;gap:12px;margin-top:8px">
+        <div>
+          <label class="small">Pilih produk</label>
+          <select id="productSelect"></select>
+          <label class="small" style="margin-top:8px">Nama (opsional)</label>
+          <input id="reviewName" type="text" placeholder="Nama reviewer" />
+          <label class="small" style="margin-top:8px">Rating (1-5)</label>
+          <select id="reviewRating">
+            <option>5</option><option>4</option><option>3</option><option>2</option><option>1</option>
+          </select>
+          <label class="small" style="margin-top:8px">Kualitas</label>
+          <div style="margin:6px 0"><button class="chip" data-q="Baik">Baik</button><button class="chip" data-q="Cukup">Cukup</button><button class="chip" data-q="Buruk">Buruk</button></div>
+          <label class="small" style="margin-top:8px">Komentar</label>
+          <textarea id="reviewText" rows="4" placeholder="Berikan komentar singkat tentang kualitas, ketepatan ukuran, kekuatan, dan lain-lain"></textarea>
+        </div>
+        <div style="background:#fbfdfe;border-radius:8px;padding:12px">
+          <div class="small">Pratinjau rating</div>
+          <div id="preview" style="margin-top:8px"></div>
+          <div style="margin-top:12px" class="small">Tip penilaian:</div>
+          <ul class="small">
+            <li>5 — Sangat baik, sesuai standar pabrik, tanpa cacat.</li>
+            <li>4 — Baik, ada toleransi kecil tapi masih layak pakai.</li>
+            <li>3 — Cukup, fungsional tapi ada kekurangan.</li>
+            <li>2 — Kurang, sering menyebabkan masalah instalasi.</li>
+            <li>1 — Buruk, banyak cacat atau kualitas rendah.</li>
+          </ul>
+          <div style="margin-top:10px;display:flex;gap:8px"><button id="saveReview" class="btn">Simpan</button><button id="closeModal" class="btn secondary">Batal</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Sample products based on user list. Each product has id, name, category, desc
+    const sampleProducts = [
+      {id:'smt',name:'Semen (Portland)',category:'Bahan Bangunan Pokok',desc:'Semen untuk struktur beton & plester.'},
+      {id:'psr',name:'Pasir',category:'Bahan Bangunan Pokok',desc:'Pasir pasang & urug (halus dan kasar).'},
+      {id:'psrcor',name:'Pasir Cor',category:'Bahan Bangunan Pokok',desc:'Pasir bersih khusus cor beton.'},
+      {id:'split',name:'Batu Split / Koral',category:'Bahan Bangunan Pokok',desc:'Agregat kasar untuk beton.'},
+      {id:'btrj',name:'Batu Bata Merah',category:'Dinding & Partisi',desc:'Bata merah tradisional.'},
+      {id:'batako',name:'Batako',category:'Dinding & Partisi',desc:'Bata beton ringan untuk dinding.'},
+      {id:'hebel',name:'Hebel / Bata Ringan',category:'Dinding & Partisi',desc:'Ringan, untuk dinding cepat.'},
+      {id:'precast',name:'Beton Precast',category:'Struktur & Panel',desc:'Panel beton ready-made.'},
+      {id:'besi',name:'Besi Beton / Tulangan',category:'Baja & Besi',desc:'Tulangan untuk struktur beton.'},
+      {id:'bajaRingan',name:'Baja Ringan',category:'Struktur & Atap',desc:'Rangka atap ringan.'},
+      {id:'kayu',name:'Kayu Konstruksi (kaso, balok)',category:'Kayu',desc:'Konstruksi rangka dan kusen.'},
+      {id:'genteng',name:'Genteng (keramik/beton/metal)',category:'Atap',desc:'Genteng berbagai jenis.'},
+      {id:'talang',name:'Talang & Nok Atap',category:'Atap',desc:'Sistem pembuangan air atap.'},
+      {id:'catInt',name:'Cat Tembok Interior',category:'Finishing',desc:'Cat tembok interior berkualitas.'},
+      {id:'catExt',name:'Cat Tembok Eksterior',category:'Finishing',desc:'Cat tahan cuaca eksterior.'},
+      {id:'keramik',name:'Keramik & Porselen',category:'Lantai & Plafon',desc:'Lantai keramik untuk interior & kamar mandi.'},
+      {id:'granit',name:'Granit / Marmer',category:'Lantai & Plafon',desc:'Lantai dan finishing mewah.'},
+      {id:'gypsum',name:'Gypsum Board',category:'Plafon & Partisi',desc:'Plafon dan partisi interior.'},
+      {id:'pipaPVC',name:'Pipa PVC',category:'Instalasi Air',desc:'Pipa air & fitting PVC.'},
+      {id:'kran',name:'Kran & Mixer',category:'Sanitasi',desc:'Fitting kamar mandi & dapur.'},
+      {id:'klose',name:'Kloset & Wastafel',category:'Sanitasi',desc:'Perlengkapan toilet & wastafel.'},
+      {id:'kabel',name:'Kabel Listrik',category:'Instalasi Listrik',desc:'Kabel instalasi berbagai ukuran.'},
+      {id:'saklar',name:'Saklar & Stop Kontakt',category:'Instalasi Listrik',desc:'Saklar, stop kontak, MCB.'},
+      {id:'pintu',name:'Pintu & Kusen',category:'Pintu & Jendela',desc:'Pintu kayu, aluminium, UPVC.'},
+      {id:'kaca',name:'Kaca (bening / tempered)',category:'Pintu & Jendela',desc:'Kaca untuk jendela dan pintu.'},
+      {id:'alat',name:'Alat Tangan (palu, bor)',category:'Perlengkapan',desc:'Peralatan kerja & safety.'}
+    ];
+
+    // Local storage key
+    const STORAGE_KEY = 'reviewBahanBangunan_v1';
+
+    // state
+    let products = JSON.parse(JSON.stringify(sampleProducts));
+    let reviews = loadReviews();
+
+    function loadReviews(){
+      try{
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : [];
+      }catch(e){console.error(e); return []}
+    }
+    function saveReviews(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)); }
+
+    // build UI
+    const itemsEl = document.getElementById('items');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const searchInput = document.getElementById('searchInput');
+    const sortBy = document.getElementById('sortBy');
+    const totalProducts = document.getElementById('totalProducts');
+    const ratingDist = document.getElementById('ratingDist');
+
+    // populate category options
+    const categories = [...new Set(products.map(p=>p.category))];
+    categories.forEach(c=>{ const opt = document.createElement('option'); opt.value=c; opt.textContent=c; categoryFilter.appendChild(opt)});
+
+    function computeStats(){
+      const prodCount = products.length;
+      totalProducts.textContent = prodCount;
+
+      // distribution 1-5
+      const dist = [0,0,0,0,0];
+      reviews.forEach(r => { dist[5 - r.rating] = dist[5 - r.rating] + 1; });
+      const totalRev = reviews.length || 1;
+      ratingDist.innerHTML = '';
+      for(let i=5;i>=1;i--){
+        const row = document.createElement('div'); row.style.display='flex';row.style.alignItems='center';row.style.gap='8px';row.style.marginBottom='6px';
+        const label = document.createElement('div'); label.style.width='40px'; label.className='small'; label.textContent = i + '★';
+        const barWrap = document.createElement('div'); barWrap.style.flex='1'; barWrap.className='rating-bar';
+        const fill = document.createElement('div'); fill.className='rating-fill'; fill.style.width = '(reviews.length? ( (reviews.filter(r=>r.rating===i).length/totalRev)*100  : 0)' + '%';
+        barWrap.appendChild(fill);
+        const num = document.createElement('div'); num.style.width='36px'; num.className='small'; num.textContent = reviews.filter(r=>r.rating===i).length;
+        row.appendChild(label); row.appendChild(barWrap); row.appendChild(num);
+        ratingDist.appendChild(row);
+      }
+    }
+
+    function getAvgRating(productId){
+      const r = reviews.filter(x=>x.productId===productId);
+      if(!r.length) return 0;
+      return (r.reduce((s,x)=>s+x.rating,0)/r.length);
+    }
+
+    function render(){
+      itemsEl.innerHTML='';
+      const q = searchInput.value.trim().toLowerCase();
+      const cat = categoryFilter.value;
+      let list = products.filter(p=>{
+        if(cat && p.category!==cat) return false;
+        if(!q) return true;
+        return p.name.toLowerCase().includes(q) || p.desc.toLowerCase().includes(q) || p.category.toLowerCase().includes(q);
+      });
+
+      // sort
+      const s = sortBy.value;
+      if(s==='rating_desc') list.sort((a,b)=> getAvgRating(b.id)-getAvgRating(a.id));
+      else if(s==='rating_asc') list.sort((a,b)=> getAvgRating(a.id)-getAvgRating(b.id));
+      else if(s==='name_asc') list.sort((a,b)=> a.name.localeCompare(b.name));
+      else if(s==='popular') list.sort((a,b)=> (reviews.filter(r=>r.productId===b.id).length) - (reviews.filter(r=>r.productId===a.id).length));
+
+      list.forEach(p=>{
+        const card = document.createElement('div'); card.className='card item-card';
+        const thumb = document.createElement('div'); thumb.className='item-thumb'; thumb.textContent = p.name.split(' ')[0];
+        const body = document.createElement('div'); body.className='item-body';
+        const title = document.createElement('div'); title.style.fontWeight='700'; title.textContent = p.name;
+        const meta = document.createElement('div'); meta.className='meta'; meta.textContent = p.category + ' — ' + p.desc;
+        const avg = getAvgRating(p.id);
+        const starWrap = document.createElement('div'); starWrap.className='stars';
+        const avgText = document.createElement('span'); avgText.className='small'; avgText.style.marginLeft='8px'; avgText.textContent = avg? avg.toFixed(1) + ' (' + reviews.filter(r=>r.productId===p.id).length + ' review)':'';
+        for(let i=1;i<=5;i++){
+          const sEl = document.createElement('span'); sEl.className='star'; sEl.textContent = i<=Math.round(avg)?'★':'☆'; starWrap.appendChild(sEl);
+        }
+        const actions = document.createElement('div'); actions.style.marginTop='8px';
+        const btnReview = document.createElement('button'); btnReview.className='btn'; btnReview.textContent='Lihat / Tambah Review';
+        btnReview.onclick = ()=> openModal(p.id);
+        actions.appendChild(btnReview);
+        body.appendChild(title); body.appendChild(meta); body.appendChild(starWrap); body.appendChild(avgText); body.appendChild(actions);
+        card.appendChild(thumb); card.appendChild(body);
+        itemsEl.appendChild(card);
+      });
+
+      computeStats();
+    }
+
+    // modal logic
+    const modal = document.getElementById('modal');
+    const productSelect = document.getElementById('productSelect');
+    const reviewName = document.getElementById('reviewName');
+    const reviewRating = document.getElementById('reviewRating');
+    const reviewText = document.getElementById('reviewText');
+    const preview = document.getElementById('preview');
+    const saveReviewBtn = document.getElementById('saveReview');
+    const closeModalBtn = document.getElementById('closeModal');
+
+    function openModal(productId){
+      modal.style.display='flex';
+      productSelect.innerHTML='';
+      products.forEach(p => {
+        const o = document.createElement('option'); o.value = p.id; o.textContent = p.name + ' — ' + p.category; productSelect.appendChild(o);
+      });
+      productSelect.value = productId || products[0].id;
+      reviewName.value = '';
+      reviewRating.value = '5';
+      reviewText.value = '';
+      updatePreview();
+    }
+    function closeModal(){ modal.style.display='none' }
+
+    function updatePreview(){
+      const r = Number(reviewRating.value);
+      preview.innerHTML = '';
+      const stars = document.createElement('div');
+      for(let i=1;i<=5;i++){ const sp = document.createElement('span'); sp.className='star'; sp.textContent = i<=r? '★':'☆'; stars.appendChild(sp);} 
+      const txt = document.createElement('div'); txt.className='small'; txt.style.marginTop='8px'; txt.textContent = reviewText.value || 'Belum ada komentar.';
+      preview.appendChild(stars); preview.appendChild(txt);
+    }
+
+    // chip quality
+    document.querySelectorAll('.chip').forEach(c=>{
+      c.addEventListener('click', ()=>{ document.querySelectorAll('.chip').forEach(x=>x.style.background=''); c.style.background='#e6f9f8'; });
+    });
+
+    reviewRating.addEventListener('change', updatePreview);
+    reviewText.addEventListener('input', updatePreview);
+
+    saveReviewBtn.addEventListener('click', ()=>{
+      const productId = productSelect.value; const name = reviewName.value || 'Anonim'; const rating = Number(reviewRating.value); const text = reviewText.value || '';
+      const selChip = Array.from(document.querySelectorAll('.chip')).find(x=>x.style.background);
+      const quality = selChip ? selChip.dataset.q : '';
+      const rev = {id:Date.now().toString(36),productId, name, rating, text, quality, date:new Date().toISOString()};
+      reviews.push(rev); saveReviews(); closeModal(); render();
+    });
+
+    closeModalBtn.addEventListener('click', closeModal);
+    document.getElementById('btnAddReview').addEventListener('click', ()=>openModal());
+
+    // export
+    document.getElementById('btnExport').addEventListener('click', ()=>{
+      const blob = new Blob([JSON.stringify({products, reviews},null,2)],{type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a'); a.href=url; a.download = 'review-bahan-bangunan.json'; a.click(); URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btnReset').addEventListener('click', ()=>{
+      if(confirm('Hapus semua review dari penyimpanan browser?')){ reviews=[]; saveReviews(); render(); }
+    });
+
+    // search & filters
+    [searchInput, categoryFilter, sortBy].forEach(el=>el.addEventListener('input', render));
+
+    // initial render
+    render();
+  </script>
+</body>
+</html>
